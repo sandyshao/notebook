@@ -6,6 +6,8 @@
 
 from __future__ import absolute_import, print_function
 
+print('hello from there')
+
 import datetime
 import errno
 import importlib
@@ -326,10 +328,17 @@ class NbserverListApp(JupyterApp):
 #-----------------------------------------------------------------------------
 
 flags = dict(base_flags)
+
+flags['root'] = (
+    {'NotebookApp': {'root' : False}},
+    "Refuse to open a root."
+)
+
 flags['no-browser']=(
     {'NotebookApp' : {'open_browser' : False}},
     "Don't open the notebook in a browser after startup."
 )
+
 flags['pylab']=(
     {'NotebookApp' : {'pylab' : 'warn'}},
     "DISABLED: use %pylab or %matplotlib in the notebook to enable matplotlib."
@@ -418,7 +427,7 @@ class NotebookApp(JupyterApp):
     file_to_run = Unicode('', config=True)
 
     # Network related information
-    
+
     allow_origin = Unicode('', config=True,
         help="""Set the Access-Control-Allow-Origin header
         
@@ -444,6 +453,8 @@ class NotebookApp(JupyterApp):
     allow_credentials = Bool(False, config=True,
         help="Set the Access-Control-Allow-Credentials: true header"
     )
+
+    root = Bool(True, config=True, help='allow the notebook to run as Root')
     
     default_url = Unicode('/tree', config=True,
         help="The default URL to redirect to from `/`"
@@ -1101,6 +1112,14 @@ class NotebookApp(JupyterApp):
         This method takes no arguments so all configuration and initialization
         must be done prior to calling this method."""
         super(NotebookApp, self).start()
+
+        #what's difference between self.log.warning & self.log.critical
+        try:
+            if os.geteuid() == 0 and self.root:
+                self.log.critical("Refuse to run as root %s" % self.root)
+                self.exit(1)
+        except OSError:
+            pass
 
         info = self.log.info
         for line in self.notebook_info().split("\n"):
